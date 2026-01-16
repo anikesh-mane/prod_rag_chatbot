@@ -1,0 +1,67 @@
+# Default configuration for RAG Chatbot
+# Override values via environment variables or .env file
+
+environment: development
+debug: false
+log_level: INFO
+
+api:
+  title: RAG Chatbot API
+  version: 1.0.0
+  prefix: /api/v1
+
+llm:
+  provider: openai
+  model: gpt-4
+  fallback_model: gpt-3.5-turbo
+  temperature: 0.0
+  max_tokens: 1024
+  timeout: 30
+  max_retries: 3
+
+embedding:
+  provider: openai
+  model: text-embedding-3-small
+  dimension: 1536
+  batch_size: 100
+
+retrieval:
+  top_k: 5
+  score_threshold: 0.5
+  rerank_enabled: false
+  rerank_model: cross-encoder/ms-marco-MiniLM-L-6-v2
+
+ingestion:
+  chunk_size: 512
+  chunk_overlap: 50
+  max_document_size_mb: 10
+
+milvus:
+  host: localhost
+  port: 19530
+  collection_name: rag_documents
+  index_type: IVF_FLAT
+  metric_type: COSINE
+  nlist: 128
+  nprobe: 16
+
+redis:
+  url: redis://localhost:6379/0
+  max_connections: 10
+  ttl_default: 3600
+
+database:
+  pool_size: 5
+  max_overflow: 10
+  echo: false
+
+auth:
+  jwt_algorithm: HS256
+  access_token_expire_minutes: 15
+  refresh_token_expire_days: 7
+
+rate_limit:
+  chat_per_minute: 20
+  chat_per_hour: 500
+  feedback_per_hour: 100
+  api_key_per_hour: 1000

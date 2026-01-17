@@ -8,18 +8,29 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from api.dependencies import cleanup_services
-from api.middleware import RequestContextMiddleware
+from api.middleware import RateLimitMiddleware, RequestContextMiddleware
 from api.routes import chat, feedback, health, metrics
 from configs import get_settings
 from monitoring.logging_config import setup_logging
+from retrieval.cache import RedisCache, close_cache, get_cache
 
 settings = get_settings()
 logger = structlog.get_logger(__name__)
+
+# Global Redis cache for rate limiting (set during startup)
+_redis_cache: RedisCache | None = None
+
+
+def get_redis_cache() -> RedisCache | None:
+    """Get the global Redis cache instance."""
+    return _redis_cache
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     """Application lifespan handler for startup and shutdown events."""
+    global _redis_cache
+
     # Startup
     setup_logging(settings.log_level)
     logger.info(
@@ -29,11 +40,22 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
         api_version=settings.api_version,
     )
 
+    # Initialize Redis cache
+    try:
+        cache = await get_cache()
+        if cache.is_connected():
+            _redis_cache = cache
+            logger.info("Redis cache initialized")
+    except Exception as e:
+        logger.warning("Redis cache initialization failed", error=str(e))
+        _redis_cache = None
+
     yield
 
     # Shutdown
     logger.info("Shutting down application")
     await cleanup_services()
+    await close_cache()
     logger.info("Application shutdown complete")
 
 
@@ -52,6 +74,9 @@ def create_app() -> FastAPI:
     # Add middleware (order matters - first added = outermost)
     # Request context middleware for request ID and timing
     app.add_middleware(RequestContextMiddleware)
+
+    # Rate limiting middleware (uses Redis if available, lazy initialization)
+    app.add_middleware(RateLimitMiddleware, cache_getter=get_redis_cache)
 
     # CORS middleware
     app.add_middleware(

@@ -9,7 +9,7 @@ from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from configs import Settings, get_settings
 from ingestion import IngestionPipeline
 from llm import RAGGenerator
-from retrieval import MilvusVectorStore, Retriever
+from retrieval import MilvusVectorStore, RedisCache, Retriever, get_cache
 from schemas import UserRole
 
 logger = structlog.get_logger(__name__)
@@ -39,6 +39,7 @@ _vector_store: MilvusVectorStore | None = None
 _retriever: Retriever | None = None
 _generator: RAGGenerator | None = None
 _ingestion_pipeline: IngestionPipeline | None = None
+_cache: RedisCache | None = None
 
 
 async def get_vector_store() -> MilvusVectorStore:
@@ -68,6 +69,18 @@ async def get_generator() -> RAGGenerator:
     return _generator
 
 
+async def get_redis_cache() -> RedisCache | None:
+    """Get or create Redis cache instance."""
+    global _cache
+    if _cache is None:
+        try:
+            _cache = await get_cache()
+        except Exception as e:
+            logger.warning("Redis cache unavailable", error=str(e))
+            return None
+    return _cache
+
+
 async def get_ingestion_pipeline() -> IngestionPipeline:
     """Get or create ingestion pipeline instance."""
     global _ingestion_pipeline
@@ -81,6 +94,7 @@ VectorStoreDep = Annotated[MilvusVectorStore, Depends(get_vector_store)]
 RetrieverDep = Annotated[Retriever, Depends(get_retriever)]
 GeneratorDep = Annotated[RAGGenerator, Depends(get_generator)]
 IngestionDep = Annotated[IngestionPipeline, Depends(get_ingestion_pipeline)]
+CacheDep = Annotated[RedisCache | None, Depends(get_redis_cache)]
 
 
 # =============================================================================
@@ -208,7 +222,7 @@ AdminUserDep = Annotated[CurrentUser, Depends(require_role(UserRole.ADMIN))]
 
 async def cleanup_services() -> None:
     """Cleanup service connections on shutdown."""
-    global _vector_store, _retriever, _generator, _ingestion_pipeline
+    global _vector_store, _retriever, _generator, _ingestion_pipeline, _cache
 
     if _retriever:
         await _retriever.close()
@@ -217,6 +231,10 @@ async def cleanup_services() -> None:
     if _vector_store:
         await _vector_store.disconnect()
         _vector_store = None
+
+    if _cache:
+        await _cache.disconnect()
+        _cache = None
 
     _generator = None
     _ingestion_pipeline = None

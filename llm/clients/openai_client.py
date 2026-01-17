@@ -1,7 +1,9 @@
-"""OpenAI LLM client implementation."""
+"""OpenAI LLM client implementation with Redis caching."""
+
+from __future__ import annotations
 
 import time
-from typing import AsyncGenerator
+from typing import TYPE_CHECKING, AsyncGenerator
 
 import structlog
 from openai import AsyncOpenAI, APIError, RateLimitError, APITimeoutError
@@ -14,14 +16,17 @@ from tenacity import (
 
 from llm.clients.base import BaseLLMClient
 from monitoring.cost_tracker import cost_tracker
-from monitoring.metrics import record_llm_call, record_llm_error
+from monitoring.metrics import record_llm_call, record_llm_error, record_cache_access
 from schemas import LLMRequest, LLMResponse
+
+if TYPE_CHECKING:
+    from retrieval.cache import RedisCache
 
 logger = structlog.get_logger(__name__)
 
 
 class OpenAIClient(BaseLLMClient):
-    """LLM client using OpenAI API."""
+    """LLM client using OpenAI API with optional Redis caching."""
 
     def __init__(
         self,
@@ -29,6 +34,7 @@ class OpenAIClient(BaseLLMClient):
         model: str = "gpt-4",
         timeout: int = 30,
         max_retries: int = 3,
+        cache: RedisCache | None = None,
     ):
         """Initialize OpenAI client.
 
@@ -37,10 +43,12 @@ class OpenAIClient(BaseLLMClient):
             model: Model name to use.
             timeout: Request timeout in seconds.
             max_retries: Maximum retry attempts.
+            cache: Optional Redis cache for response caching.
         """
         self._client = AsyncOpenAI(api_key=api_key, timeout=timeout)
         self._model = model
         self._max_retries = max_retries
+        self._cache = cache
 
     @property
     def model_name(self) -> str:
@@ -54,6 +62,8 @@ class OpenAIClient(BaseLLMClient):
     async def generate(self, request: LLMRequest) -> LLMResponse:
         """Generate a response from OpenAI.
 
+        Uses Redis cache for deterministic (temperature=0) requests.
+
         Args:
             request: LLM request.
 
@@ -62,6 +72,31 @@ class OpenAIClient(BaseLLMClient):
         """
         start_time = time.perf_counter()
         model = request.model or self._model
+
+        # Check cache for deterministic requests
+        if (
+            self._cache
+            and self._cache.is_connected()
+            and request.temperature == 0.0
+        ):
+            cached_response = await self._cache.get_llm_response(
+                query=request.prompt,
+                model=model,
+            )
+            if cached_response:
+                record_cache_access(hit=True, cache_type="llm")
+                logger.debug("LLM cache hit", model=model)
+                latency_ms = (time.perf_counter() - start_time) * 1000
+                return LLMResponse(
+                    content=cached_response,
+                    model=model,
+                    prompt_tokens=0,  # Unknown for cached response
+                    completion_tokens=0,
+                    total_tokens=0,
+                    finish_reason="cached",
+                    latency_ms=latency_ms,
+                )
+            record_cache_access(hit=False, cache_type="llm")
 
         logger.debug(
             "Calling OpenAI",
@@ -113,6 +148,19 @@ class OpenAIClient(BaseLLMClient):
                 latency_ms=round(latency_ms, 2),
                 cost_usd=round(usage_record.cost_usd, 6),
             )
+
+            # Cache deterministic responses
+            if (
+                self._cache
+                and self._cache.is_connected()
+                and request.temperature == 0.0
+            ):
+                await self._cache.set_llm_response(
+                    query=request.prompt,
+                    model=model,
+                    response=result.content,
+                    temperature=request.temperature,
+                )
 
             return result
 

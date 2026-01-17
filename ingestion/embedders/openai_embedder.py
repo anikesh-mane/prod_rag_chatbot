@@ -1,4 +1,8 @@
-"""OpenAI embedding implementation."""
+"""OpenAI embedding implementation with Redis caching."""
+
+from __future__ import annotations
+
+from typing import TYPE_CHECKING
 
 import numpy as np
 import structlog
@@ -7,11 +11,14 @@ from tenacity import retry, stop_after_attempt, wait_exponential
 
 from ingestion.embedders.base import BaseEmbedder
 
+if TYPE_CHECKING:
+    from retrieval.cache import RedisCache
+
 logger = structlog.get_logger(__name__)
 
 
 class OpenAIEmbedder(BaseEmbedder):
-    """Embedder using OpenAI's embedding API."""
+    """Embedder using OpenAI's embedding API with optional Redis caching."""
 
     def __init__(
         self,
@@ -19,6 +26,8 @@ class OpenAIEmbedder(BaseEmbedder):
         model: str = "text-embedding-3-small",
         dimension: int = 1536,
         batch_size: int = 100,
+        cache: RedisCache | None = None,
+        cache_version: str = "v1",
     ):
         """Initialize OpenAI embedder.
 
@@ -27,11 +36,15 @@ class OpenAIEmbedder(BaseEmbedder):
             model: Embedding model name.
             dimension: Expected embedding dimension.
             batch_size: Maximum texts per API call.
+            cache: Optional Redis cache for embedding caching.
+            cache_version: Version string for cache keys.
         """
         self._client = AsyncOpenAI(api_key=api_key)
         self._model = model
         self._dimension = dimension
         self._batch_size = batch_size
+        self._cache = cache
+        self._cache_version = cache_version
 
     @property
     def dimension(self) -> int:
@@ -48,17 +61,32 @@ class OpenAIEmbedder(BaseEmbedder):
     async def embed(self, text: str) -> np.ndarray:
         """Generate embedding for a single text.
 
+        Uses Redis cache if available.
+
         Args:
             text: Text to embed.
 
         Returns:
             Embedding vector.
         """
+        # Check cache first
+        if self._cache and self._cache.is_connected():
+            cached = await self._cache.get_embedding(text, self._cache_version)
+            if cached is not None:
+                logger.debug("Embedding cache hit", text_len=len(text))
+                return np.array(cached, dtype=np.float32)
+
+        # Generate embedding
         response = await self._client.embeddings.create(
             model=self._model,
             input=text,
         )
         embedding = response.data[0].embedding
+
+        # Cache the result
+        if self._cache and self._cache.is_connected():
+            await self._cache.set_embedding(text, embedding, self._cache_version)
+
         return np.array(embedding, dtype=np.float32)
 
     @retry(

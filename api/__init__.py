@@ -1,6 +1,7 @@
 """FastAPI application and routes."""
 
 from api.dependencies import (
+    CacheDep,
     CurrentUser,
     CurrentUserDep,
     GeneratorDep,
@@ -12,6 +13,7 @@ from api.dependencies import (
 )
 
 __all__ = [
+    "CacheDep",
     "CurrentUser",
     "CurrentUserDep",
     "OptionalUserDep",

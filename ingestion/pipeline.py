@@ -1,7 +1,6 @@
-"""Document ingestion pipeline."""
+"""Document ingestion pipeline with versioning support."""
 
 from pathlib import Path
-from uuid import UUID
 
 import numpy as np
 import structlog
@@ -10,13 +9,15 @@ from configs import get_settings
 from ingestion.chunkers import RecursiveChunker
 from ingestion.embedders import get_embedder
 from ingestion.loaders import load_document
+from ingestion.versioning import get_version_manager
+from monitoring.metrics import record_ingestion
 from schemas import Chunk, Document
 
 logger = structlog.get_logger(__name__)
 
 
 class IngestionPipeline:
-    """Pipeline for ingesting documents into the vector store."""
+    """Pipeline for ingesting documents into the vector store with versioning."""
 
     def __init__(
         self,
@@ -38,6 +39,10 @@ class IngestionPipeline:
             chunk_overlap=self.chunk_overlap,
         )
         self.embedder = get_embedder()
+
+        # Get embedding version info
+        self._version_manager = get_version_manager()
+        self._current_version = self._version_manager.get_active_version()
 
     async def ingest_file(
         self,
@@ -70,11 +75,19 @@ class IngestionPipeline:
         for chunk, embedding in zip(chunks, embeddings):
             chunk.embedding_id = f"{chunk.chunk_id}"
 
+        # Record metrics
+        record_ingestion(
+            document_count=1,
+            chunk_count=len(chunks),
+            source_type=document.metadata.get("file_type", "unknown"),
+        )
+
         logger.info(
             "File ingestion complete",
             path=str(file_path),
             doc_id=str(document.document_id),
             chunks=len(chunks),
+            embedding_version=self._current_version.version_id if self._current_version else "unknown",
         )
 
         return document, chunks, embeddings
@@ -115,11 +128,19 @@ class IngestionPipeline:
         for chunk, embedding in zip(chunks, embeddings):
             chunk.embedding_id = f"{chunk.chunk_id}"
 
+        # Record metrics
+        record_ingestion(
+            document_count=1,
+            chunk_count=len(chunks),
+            source_type="text",
+        )
+
         logger.info(
             "Text ingestion complete",
             source=source,
             doc_id=str(document.document_id),
             chunks=len(chunks),
+            embedding_version=self._current_version.version_id if self._current_version else "unknown",
         )
 
         return document, chunks, embeddings

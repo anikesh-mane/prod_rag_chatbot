@@ -1,6 +1,5 @@
 """FastAPI application entrypoint."""
 
-import sys
 from contextlib import asynccontextmanager
 from typing import AsyncGenerator
 
@@ -8,7 +7,9 @@ import structlog
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from api.routes import health
+from api.dependencies import cleanup_services
+from api.middleware import RequestContextMiddleware
+from api.routes import chat, feedback, health, metrics
 from configs import get_settings
 from monitoring.logging_config import setup_logging
 
@@ -25,22 +26,15 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
         "Starting application",
         environment=settings.environment,
         debug=settings.debug,
+        api_version=settings.api_version,
     )
-
-    # TODO: Initialize connections
-    # - Database connection pool
-    # - Redis client
-    # - Milvus client
-    # - Load FAISS index if applicable
 
     yield
 
     # Shutdown
     logger.info("Shutting down application")
-    # TODO: Close connections gracefully
-    # - Close database connections
-    # - Close Redis client
-    # - Flush pending metrics
+    await cleanup_services()
+    logger.info("Application shutdown complete")
 
 
 def create_app() -> FastAPI:
@@ -52,7 +46,12 @@ def create_app() -> FastAPI:
         lifespan=lifespan,
         docs_url="/docs" if settings.is_development else None,
         redoc_url="/redoc" if settings.is_development else None,
+        openapi_url="/openapi.json" if settings.is_development else None,
     )
+
+    # Add middleware (order matters - first added = outermost)
+    # Request context middleware for request ID and timing
+    app.add_middleware(RequestContextMiddleware)
 
     # CORS middleware
     app.add_middleware(
@@ -64,11 +63,23 @@ def create_app() -> FastAPI:
     )
 
     # Include routers
+    # Health routes at root level (no prefix)
     app.include_router(health.router, tags=["Health"])
 
-    # TODO: Add more routers as they are implemented
-    # app.include_router(chat.router, prefix=settings.api_prefix, tags=["Chat"])
-    # app.include_router(feedback.router, prefix=settings.api_prefix, tags=["Feedback"])
+    # API routes with version prefix
+    app.include_router(
+        chat.router,
+        prefix=settings.api_prefix,
+        tags=["Chat"],
+    )
+    app.include_router(
+        feedback.router,
+        prefix=settings.api_prefix,
+        tags=["Feedback"],
+    )
+
+    # Metrics routes at root level (for Prometheus scraping)
+    app.include_router(metrics.router, tags=["Metrics"])
 
     return app
 

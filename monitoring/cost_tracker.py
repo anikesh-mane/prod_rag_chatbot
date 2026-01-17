@@ -41,6 +41,13 @@ DEFAULT_PRICING: dict[str, ModelPricing] = {
     # Mistral models (self-hosted costs are infrastructure-based)
     "mistral-7b": {"prompt": 0.0, "completion": 0.0},
     "mistral-large": {"prompt": 0.008, "completion": 0.024},
+    # Google Gemini models (pricing per 1K tokens)
+    "gemini-2.0-flash": {"prompt": 0.0001, "completion": 0.0004},
+    "gemini-2.0-flash-lite": {"prompt": 0.000075, "completion": 0.0003},
+    "gemini-1.5-flash": {"prompt": 0.000075, "completion": 0.0003},
+    "gemini-1.5-flash-8b": {"prompt": 0.0000375, "completion": 0.00015},
+    "gemini-1.5-pro": {"prompt": 0.00125, "completion": 0.005},
+    "gemini-1.0-pro": {"prompt": 0.0005, "completion": 0.0015},
     # Default fallback
     "default": {"prompt": 0.01, "completion": 0.03},
 }

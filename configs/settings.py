@@ -47,7 +47,7 @@ class LLMSettings(BaseSettings):
 
     model_config = SettingsConfigDict(env_prefix="LLM_")
 
-    provider: Literal["openai", "mistral"] = Field(default="openai")
+    provider: Literal["openai", "gemini", "mistral"] = Field(default="openai")
     model: str = Field(default="gpt-4")
     fallback_model: str = Field(default="gpt-3.5-turbo")
     temperature: float = Field(default=0.0, ge=0.0, le=2.0)
@@ -130,7 +130,8 @@ class Settings(BaseSettings):
     api_prefix: str = Field(default="/api/v1")
 
     # Secrets
-    openai_api_key: SecretStr = Field(..., description="OpenAI API key")
+    openai_api_key: SecretStr = Field(default=SecretStr(""), description="OpenAI API key")
+    gemini_api_key: SecretStr = Field(default=SecretStr(""), description="Google Gemini API key")
 
     # Nested settings
     database: DatabaseSettings = Field(default_factory=DatabaseSettings)

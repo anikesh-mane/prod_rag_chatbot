@@ -9,7 +9,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from api.dependencies import cleanup_services
 from api.middleware import RateLimitMiddleware, RequestContextMiddleware
-from api.routes import chat, feedback, health, metrics
+from api.routes import chat, feedback, health, ingestion, metrics
 from configs import get_settings
 from monitoring.logging_config import setup_logging
 from retrieval.cache import RedisCache, close_cache, get_cache
@@ -101,6 +101,11 @@ def create_app() -> FastAPI:
         feedback.router,
         prefix=settings.api_prefix,
         tags=["Feedback"],
+    )
+    app.include_router(
+        ingestion.router,
+        prefix=settings.api_prefix,
+        tags=["Ingestion"],
     )
 
     # Metrics routes at root level (for Prometheus scraping)

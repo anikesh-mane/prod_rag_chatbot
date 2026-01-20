@@ -31,6 +31,7 @@ from schemas.requests import (
 from schemas.responses import (
     ChatResponse,
     FeedbackResponse,
+    FileIngestResponse,
     IngestResponse,
     MetricsResponse,
     SourceDocument,
@@ -67,6 +68,7 @@ __all__ = [
     # Responses
     "ChatResponse",
     "FeedbackResponse",
+    "FileIngestResponse",
     "SourceDocument",
     "TokenResponse",
     "IngestResponse",

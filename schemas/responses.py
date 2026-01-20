@@ -54,6 +54,16 @@ class IngestResponse(BaseSchema):
     status: str = "ingested"
 
 
+class FileIngestResponse(BaseSchema):
+    """Response model for file ingestion."""
+
+    document_id: UUID
+    filename: str
+    file_type: str
+    chunks_created: int
+    status: str = "ingested"
+
+
 class MetricsResponse(BaseSchema):
     """Response model for metrics endpoint."""
 

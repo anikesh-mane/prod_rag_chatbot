@@ -304,3 +304,127 @@ class MilvusVectorStore:
         except Exception as e:
             logger.error("Milvus health check failed", error=str(e))
             return False
+
+    async def list_documents(
+        self,
+        limit: int = 100,
+        offset: int = 0,
+    ) -> tuple[list[dict[str, Any]], int]:
+        """List unique documents with chunk counts.
+
+        Args:
+            limit: Maximum number of documents to return.
+            offset: Number of documents to skip.
+
+        Returns:
+            Tuple of (list of document summaries, total document count).
+        """
+        if not self._collection:
+            raise RuntimeError("Not connected to Milvus")
+
+        # Query all chunks to aggregate by document_id
+        # Note: For large collections, consider adding an index on document_id
+        results = self._collection.query(
+            expr="",
+            output_fields=["document_id", "chunk_id", "metadata"],
+            limit=16384,  # Milvus query limit
+        )
+
+        # Aggregate by document_id
+        doc_map: dict[str, dict[str, Any]] = {}
+        for row in results:
+            doc_id = row.get("document_id")
+            if doc_id not in doc_map:
+                doc_map[doc_id] = {
+                    "document_id": doc_id,
+                    "chunk_count": 0,
+                    "metadata": row.get("metadata", {}),
+                }
+            doc_map[doc_id]["chunk_count"] += 1
+
+        # Sort by document_id for consistent ordering
+        all_docs = sorted(doc_map.values(), key=lambda x: x["document_id"])
+        total = len(all_docs)
+
+        # Apply pagination
+        paginated = all_docs[offset : offset + limit]
+
+        logger.debug(
+            "Listed documents",
+            total=total,
+            returned=len(paginated),
+            offset=offset,
+            limit=limit,
+        )
+        return paginated, total
+
+    async def get_document_chunks(
+        self,
+        document_id: str,
+    ) -> list[dict[str, Any]]:
+        """Get all chunks for a specific document.
+
+        Args:
+            document_id: The document ID to retrieve chunks for.
+
+        Returns:
+            List of chunk dictionaries with chunk_id, content, and metadata.
+        """
+        if not self._collection:
+            raise RuntimeError("Not connected to Milvus")
+
+        expr = f'document_id == "{document_id}"'
+        results = self._collection.query(
+            expr=expr,
+            output_fields=["chunk_id", "document_id", "content", "metadata"],
+            limit=16384,
+        )
+
+        chunks = [
+            {
+                "chunk_id": row.get("chunk_id"),
+                "document_id": row.get("document_id"),
+                "content": row.get("content"),
+                "metadata": row.get("metadata", {}),
+            }
+            for row in results
+        ]
+
+        logger.debug(
+            "Retrieved document chunks",
+            document_id=document_id,
+            chunk_count=len(chunks),
+        )
+        return chunks
+
+    async def get_document_info(
+        self,
+        document_id: str,
+    ) -> dict[str, Any] | None:
+        """Get summary info for a specific document.
+
+        Args:
+            document_id: The document ID to get info for.
+
+        Returns:
+            Dictionary with document_id, chunk_count, and metadata, or None if not found.
+        """
+        if not self._collection:
+            raise RuntimeError("Not connected to Milvus")
+
+        expr = f'document_id == "{document_id}"'
+        results = self._collection.query(
+            expr=expr,
+            output_fields=["chunk_id", "metadata"],
+            limit=16384,
+        )
+
+        if not results:
+            return None
+
+        # Aggregate chunk info
+        return {
+            "document_id": document_id,
+            "chunk_count": len(results),
+            "metadata": results[0].get("metadata", {}) if results else {},
+        }

@@ -25,18 +25,26 @@ from schemas.internal import (
 from schemas.requests import (
     ChatRequest,
     DocumentIngestRequest,
+    DocumentListQuery,
     FeedbackRequest,
     TokenRefreshRequest,
 )
 from schemas.responses import (
     ChatResponse,
+    ChunkSummary,
+    DeleteDocumentResponse,
+    DocumentDetailResponse,
+    DocumentListResponse,
+    DocumentSummary,
     FeedbackResponse,
     FileIngestResponse,
     IngestResponse,
     MetricsResponse,
+    ReindexResponse,
     SourceDocument,
     TokenResponse,
     UserResponse,
+    VectorStoreStatsResponse,
 )
 
 __all__ = [
@@ -64,6 +72,7 @@ __all__ = [
     "ChatRequest",
     "FeedbackRequest",
     "DocumentIngestRequest",
+    "DocumentListQuery",
     "TokenRefreshRequest",
     # Responses
     "ChatResponse",
@@ -74,4 +83,12 @@ __all__ = [
     "IngestResponse",
     "MetricsResponse",
     "UserResponse",
+    # Admin Responses
+    "ChunkSummary",
+    "DocumentSummary",
+    "DocumentListResponse",
+    "DocumentDetailResponse",
+    "DeleteDocumentResponse",
+    "ReindexResponse",
+    "VectorStoreStatsResponse",
 ]

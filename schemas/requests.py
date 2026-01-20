@@ -47,3 +47,10 @@ class TokenRefreshRequest(BaseSchema):
     """Request model for token refresh."""
 
     refresh_token: str = Field(..., description="Refresh token")
+
+
+class DocumentListQuery(BaseSchema):
+    """Query parameters for listing documents."""
+
+    limit: int = Field(default=50, ge=1, le=500, description="Maximum documents to return")
+    offset: int = Field(default=0, ge=0, description="Number of documents to skip")

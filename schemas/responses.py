@@ -84,3 +84,68 @@ class UserResponse(BaseSchema):
     role: str
     created_at: datetime
     last_login: datetime | None = None
+
+
+# =============================================================================
+# Admin Response Models
+# =============================================================================
+
+
+class ChunkSummary(BaseSchema):
+    """Summary of a document chunk."""
+
+    chunk_id: str
+    content_preview: str = Field(..., description="First 200 characters of chunk content")
+    metadata: dict[str, str | int | float | bool] = Field(default_factory=dict)
+
+
+class DocumentSummary(BaseSchema):
+    """Summary of a document in the vector store."""
+
+    document_id: str
+    chunk_count: int
+    metadata: dict[str, str | int | float | bool] = Field(default_factory=dict)
+
+
+class DocumentListResponse(BaseSchema):
+    """Response for listing documents."""
+
+    documents: list[DocumentSummary]
+    total: int = Field(..., description="Total number of documents")
+    limit: int
+    offset: int
+
+
+class DocumentDetailResponse(BaseSchema):
+    """Detailed response for a single document."""
+
+    document_id: str
+    chunk_count: int
+    chunks: list[ChunkSummary]
+    metadata: dict[str, str | int | float | bool] = Field(default_factory=dict)
+
+
+class DeleteDocumentResponse(BaseSchema):
+    """Response for document deletion."""
+
+    document_id: str
+    chunks_deleted: int
+    status: str = "deleted"
+
+
+class ReindexResponse(BaseSchema):
+    """Response for document re-indexing."""
+
+    document_id: str
+    chunks_reindexed: int
+    status: str = "reindexed"
+
+
+class VectorStoreStatsResponse(BaseSchema):
+    """Response for vector store statistics."""
+
+    collection_name: str
+    total_chunks: int
+    dimension: int
+    index_type: str
+    metric_type: str

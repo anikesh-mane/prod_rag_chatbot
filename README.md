@@ -1,5 +1,7 @@
 # Multilingual RAG Chatbot for Channel Sales  
-**Production-Ready LLM System with Feedback-Driven Learning, Cost Control & Zero-Downtime Embedding Migration**
+**Trying to build VIBE CODED Prod grade LLM System with Feedback-Driven Learning, Cost Control & Zero-Downtime Embedding Migration**
+
+[Roadmap](docs\nexsteps.md`)
 
 ---
 

@@ -1,7 +1,7 @@
 # Multilingual RAG Chatbot for Channel Sales  
 **Trying to build VIBE CODED Prod grade LLM System with Feedback-Driven Learning, Cost Control & Zero-Downtime Embedding Migration**
 
-[Roadmap](docs/nexsteps.md`)
+[Roadmap](docs/nexsteps.md)
 
 ---
 

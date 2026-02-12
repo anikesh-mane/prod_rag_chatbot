@@ -9,6 +9,7 @@ from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from configs import Settings, get_settings
 from ingestion import IngestionPipeline
 from llm import RAGGenerator
+from memory import ConversationCache, ConversationManager
 from retrieval import MilvusVectorStore, RedisCache, Retriever, get_cache
 from schemas import UserRole
 
@@ -40,6 +41,7 @@ _retriever: Retriever | None = None
 _generator: RAGGenerator | None = None
 _ingestion_pipeline: IngestionPipeline | None = None
 _cache: RedisCache | None = None
+_conversation_manager: ConversationManager | None = None
 
 
 async def get_vector_store() -> MilvusVectorStore:
@@ -89,12 +91,28 @@ async def get_ingestion_pipeline() -> IngestionPipeline:
     return _ingestion_pipeline
 
 
+async def get_conversation_manager() -> ConversationManager:
+    """Get or create conversation manager instance."""
+    global _conversation_manager
+    if _conversation_manager is None:
+        settings = get_settings()
+        cache = await get_redis_cache()
+        conv_cache = ConversationCache(cache, ttl_minutes=settings.memory.conversation_ttl_minutes) if cache else None
+        _conversation_manager = ConversationManager(
+            cache=conv_cache,
+            window_size=settings.memory.window_size,
+            max_cache_messages=settings.memory.max_cache_messages,
+        )
+    return _conversation_manager
+
+
 # Type aliases for cleaner dependency injection
 VectorStoreDep = Annotated[MilvusVectorStore, Depends(get_vector_store)]
 RetrieverDep = Annotated[Retriever, Depends(get_retriever)]
 GeneratorDep = Annotated[RAGGenerator, Depends(get_generator)]
 IngestionDep = Annotated[IngestionPipeline, Depends(get_ingestion_pipeline)]
 CacheDep = Annotated[RedisCache | None, Depends(get_redis_cache)]
+ConversationManagerDep = Annotated[ConversationManager, Depends(get_conversation_manager)]
 
 
 # =============================================================================
@@ -222,7 +240,7 @@ AdminUserDep = Annotated[CurrentUser, Depends(require_role(UserRole.ADMIN))]
 
 async def cleanup_services() -> None:
     """Cleanup service connections on shutdown."""
-    global _vector_store, _retriever, _generator, _ingestion_pipeline, _cache
+    global _vector_store, _retriever, _generator, _ingestion_pipeline, _cache, _conversation_manager
 
     if _retriever:
         await _retriever.close()
@@ -238,5 +256,6 @@ async def cleanup_services() -> None:
 
     _generator = None
     _ingestion_pipeline = None
+    _conversation_manager = None
 
     logger.info("Services cleaned up")

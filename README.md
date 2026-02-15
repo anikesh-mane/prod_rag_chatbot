@@ -2,6 +2,7 @@
 **Trying to build VIBE CODED Prod grade LLM System with Feedback-Driven Learning, Cost Control & Zero-Downtime Embedding Migration**
 
 [Roadmap](docs/nextsteps.md)
+[DB Setup](docs/db_setup_docker.md)
 
 ---
 

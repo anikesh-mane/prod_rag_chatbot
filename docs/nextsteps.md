@@ -1,4 +1,4 @@
-## 1. Conversational Memory (State Management)
+## ✅ 1. Conversational Memory (State Management) -- implement summary !
 The current architecture describes a stateless pipeline: Query → Retrieval → Response. For a chatbot, you need to maintain context across multiple turns.
 
 - Missing Component: A Conversation Buffer or Summary Memory module.

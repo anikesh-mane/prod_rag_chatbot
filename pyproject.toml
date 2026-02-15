@@ -27,6 +27,7 @@ dependencies = [
 
     # Embeddings
     "sentence-transformers>=2.2.0",
+    "google-genai>=1.0.0",
 
     # Utilities
     "python-jose[cryptography]>=3.3.0",

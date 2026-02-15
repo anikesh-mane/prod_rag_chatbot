@@ -9,7 +9,7 @@ from ingestion.embedders.sentence_transformer_embedder import SentenceTransforme
 
 
 def get_embedder(
-    provider: Literal["openai", "sentence-transformers"] | None = None,
+    provider: Literal["openai", "sentence-transformers", "gemini"] | None = None,
 ) -> BaseEmbedder:
     """Get configured embedder instance.
 
@@ -32,6 +32,15 @@ def get_embedder(
     elif provider == "sentence-transformers":
         return SentenceTransformerEmbedder(
             model=settings.embedding.model,
+            batch_size=settings.embedding.batch_size,
+        )
+    elif provider == "gemini":
+        from ingestion.embedders.gemini_embedder import GeminiEmbedder
+
+        return GeminiEmbedder(
+            api_key=settings.gemini_api_key.get_secret_value(),
+            model=settings.embedding.model,
+            dimension=settings.embedding.dimension,
             batch_size=settings.embedding.batch_size,
         )
     else:

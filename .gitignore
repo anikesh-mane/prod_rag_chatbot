@@ -27,6 +27,8 @@ env/
 ENV/
 .env
 .env.example
+requirements.txt
+requirements-dev.txt
 
 # VS Code
 .vscode/

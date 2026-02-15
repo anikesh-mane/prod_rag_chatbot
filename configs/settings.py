@@ -2,6 +2,7 @@
 
 from functools import lru_cache
 from typing import Literal
+from urllib.parse import urlparse
 
 from pydantic import Field, SecretStr, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
@@ -26,6 +27,36 @@ class RedisSettings(BaseSettings):
     url: str = Field(default="redis://localhost:6379/0")
     max_connections: int = Field(default=10, ge=1, le=100)
     ttl_default: int = Field(default=3600, description="Default TTL in seconds")
+
+    @property
+    def host(self) -> str:
+        """Parse host from URL."""
+        parsed = urlparse(self.url)
+        return parsed.hostname or "localhost"
+
+    @property
+    def port(self) -> int:
+        """Parse port from URL."""
+        parsed = urlparse(self.url)
+        return parsed.port or 6379
+
+    @property
+    def password(self) -> str | None:
+        """Parse password from URL."""
+        parsed = urlparse(self.url)
+        return parsed.password
+
+    @property
+    def db(self) -> int:
+        """Parse database number from URL path."""
+        parsed = urlparse(self.url)
+        path = parsed.path.lstrip("/")
+        return int(path) if path.isdigit() else 0
+
+    @property
+    def ssl(self) -> bool:
+        """Check if SSL is enabled (rediss:// scheme)."""
+        return self.url.startswith("rediss://")
 
 
 class MilvusSettings(BaseSettings):

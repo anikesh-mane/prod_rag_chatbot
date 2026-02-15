@@ -13,7 +13,8 @@ class DatabaseSettings(BaseSettings):
 
     model_config = SettingsConfigDict(env_prefix="DATABASE_")
 
-    url: SecretStr = Field(..., description="PostgreSQL connection string")
+    # url: str = Field(default="postgresql://localhost:5432/postgres", description="PostgreSQL connection string")
+    url: SecretStr = Field(default="", description="PostgreSQL connection string")
     pool_size: int = Field(default=5, ge=1, le=50)
     max_overflow: int = Field(default=10, ge=0, le=100)
     echo: bool = Field(default=False, description="Echo SQL queries")
@@ -24,7 +25,7 @@ class RedisSettings(BaseSettings):
 
     model_config = SettingsConfigDict(env_prefix="REDIS_")
 
-    url: str = Field(default="redis://localhost:6379/0")
+    url: SecretStr = Field(default="", validation_alias="REDIS_URL")
     max_connections: int = Field(default=10, ge=1, le=100)
     ttl_default: int = Field(default=3600, description="Default TTL in seconds")
 
@@ -103,7 +104,7 @@ class AuthSettings(BaseSettings):
 
     model_config = SettingsConfigDict(env_prefix="AUTH_")
 
-    jwt_secret_key: SecretStr = Field(..., description="Secret key for JWT signing")
+    jwt_secret_key: SecretStr = Field(default="", description="Secret key for JWT signing")
     jwt_algorithm: str = Field(default="HS256")
     access_token_expire_minutes: int = Field(default=15, ge=1, le=1440)
     refresh_token_expire_days: int = Field(default=7, ge=1, le=30)

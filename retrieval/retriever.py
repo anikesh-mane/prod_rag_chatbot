@@ -109,7 +109,7 @@ class Retriever:
         record_retrieval(
             duration=duration,
             result_count=len(results),
-            collection=self._vector_store._collection_name,
+            collection=self._vector_store.collection_name,
         )
 
         logger.info(

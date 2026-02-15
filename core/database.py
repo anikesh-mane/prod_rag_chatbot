@@ -12,6 +12,7 @@ from sqlalchemy.ext.asyncio import (
 )
 
 from configs import get_settings
+from memory.models import Base
 
 logger = structlog.get_logger(__name__)
 
@@ -52,6 +53,13 @@ async def init_database() -> None:
         expire_on_commit=False,
         autoflush=False,
     )
+
+    # Create only conversations table
+    async with _engine.begin() as conn:
+        await conn.run_sync(
+            Base.metadata.create_all,
+            checkfirst=True,
+        )
 
     logger.info(
         "Database initialized",

@@ -2,9 +2,11 @@
 
 import time
 
+from sqlalchemy import text
 import structlog
 from fastapi import APIRouter
 
+from core import get_db_session
 from schemas import ComponentHealth, HealthResponse, HealthStatus
 
 router = APIRouter()
@@ -53,8 +55,8 @@ async def _check_database() -> ComponentHealth:
     start = time.perf_counter()
     try:
         # TODO: Implement actual database ping
-        # async with get_db_session() as session:
-        #     await session.execute(text("SELECT 1"))
+        async with get_db_session() as session:
+            await session.execute(text("SELECT 1"))
         latency = (time.perf_counter() - start) * 1000
         return ComponentHealth(
             name="postgresql",

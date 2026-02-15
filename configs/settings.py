@@ -61,7 +61,7 @@ class EmbeddingSettings(BaseSettings):
 
     model_config = SettingsConfigDict(env_prefix="EMBEDDING_")
 
-    provider: Literal["openai", "sentence-transformers"] = Field(default="openai")
+    provider: Literal["openai", "sentence-transformers", "gemini"] = Field(default="openai")
     model: str = Field(default="text-embedding-3-small")
     dimension: int = Field(default=1536)
     batch_size: int = Field(default=100, ge=1, le=1000)

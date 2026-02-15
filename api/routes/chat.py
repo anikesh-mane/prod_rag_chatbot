@@ -9,6 +9,7 @@ from fastapi import APIRouter, HTTPException, Request, status
 from fastapi.responses import StreamingResponse
 
 from api.dependencies import (
+    ConversationManagerDep,
     GeneratorDep,
     OptionalUserDep,
     RetrieverDep,
@@ -42,6 +43,7 @@ async def chat(
     generator: GeneratorDep,
     settings: SettingsDep,
     current_user: OptionalUserDep,
+    conversation_manager: ConversationManagerDep,
 ) -> ChatResponse:
     """Process a chat query using RAG pipeline.
 
@@ -51,15 +53,26 @@ async def chat(
     """
     start_time = time.perf_counter()
     query_id = uuid4()
+    user_id = current_user.user_id if current_user else None
 
     logger.info(
         "Chat request received",
         query_id=str(query_id),
         query_length=len(body.query),
-        user_id=current_user.user_id if current_user else "anonymous",
+        user_id=user_id or "anonymous",
     )
 
     try:
+        # Get or create conversation
+        conversation_id = await conversation_manager.get_or_create_conversation(
+            conversation_id=body.conversation_id,
+            user_id=user_id,
+        )
+
+        # Load conversation history (Redis first, PostgreSQL fallback)
+        conv_context = await conversation_manager.get_context(conversation_id)
+        conversation_history = conv_context.messages if conv_context.message_count > 0 else None
+
         # Retrieve relevant documents
         results = await retriever.retrieve(
             query=body.query,
@@ -68,22 +81,32 @@ async def chat(
 
         if not results:
             logger.warning("No relevant documents found", query_id=str(query_id))
-            # Return response indicating no context found
+            no_context_answer = "I don't have enough information in my knowledge base to answer this question."
+
+            # Save turn even for no-context responses
+            await conversation_manager.add_turn(
+                conversation_id=conversation_id,
+                user_message=body.query,
+                assistant_message=no_context_answer,
+                query_id=query_id,
+            )
+
             return ChatResponse(
                 query_id=query_id,
-                answer="I don't have enough information in my knowledge base to answer this question.",
+                answer=no_context_answer,
                 language=body.language or "en",
                 sources=[],
                 tokens_used=0,
                 latency_ms=(time.perf_counter() - start_time) * 1000,
                 model="none",
-                conversation_id=body.conversation_id,
+                conversation_id=str(conversation_id),
             )
 
-        # Generate response
+        # Generate response with conversation history
         answer, llm_response = await generator.generate(
             query=body.query,
             context=results,
+            conversation_history=conversation_history,
         )
 
         # Build source documents for response
@@ -99,11 +122,28 @@ async def chat(
                     )
                 )
 
+        # Save turn to memory (PostgreSQL + Redis)
+        source_refs = [
+            {"document_id": src.document_id, "score": src.score}
+            for src in sources
+        ] if sources else None
+
+        await conversation_manager.add_turn(
+            conversation_id=conversation_id,
+            user_message=body.query,
+            assistant_message=answer,
+            query_id=query_id,
+            sources=source_refs,
+            tokens_used=llm_response.total_tokens,
+            model=llm_response.model,
+        )
+
         latency_ms = (time.perf_counter() - start_time) * 1000
 
         logger.info(
             "Chat response generated",
             query_id=str(query_id),
+            conversation_id=str(conversation_id),
             sources_count=len(sources),
             tokens=llm_response.total_tokens,
             latency_ms=round(latency_ms, 2),
@@ -117,7 +157,7 @@ async def chat(
             tokens_used=llm_response.total_tokens,
             latency_ms=latency_ms,
             model=llm_response.model,
-            conversation_id=body.conversation_id,
+            conversation_id=str(conversation_id),
         )
 
     except Exception as e:

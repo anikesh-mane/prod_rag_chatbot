@@ -11,6 +11,7 @@ from api.dependencies import cleanup_services
 from api.middleware import RateLimitMiddleware, RequestContextMiddleware
 from api.routes import admin, chat, feedback, health, ingestion, metrics
 from configs import get_settings
+from core import close_database, init_database
 from monitoring.logging_config import setup_logging
 from retrieval.cache import RedisCache, close_cache, get_cache
 
@@ -40,6 +41,14 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
         api_version=settings.api_version,
     )
 
+    # Initialize database
+    try:
+        await init_database()
+        logger.info("Database initialized")
+    except Exception as e:
+        logger.error("Database initialization failed", error=str(e))
+        raise
+
     # Initialize Redis cache
     try:
         cache = await get_cache()
@@ -56,6 +65,7 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     logger.info("Shutting down application")
     await cleanup_services()
     await close_cache()
+    await close_database()
     logger.info("Application shutdown complete")
 
 

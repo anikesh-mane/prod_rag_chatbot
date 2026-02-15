@@ -110,6 +110,31 @@ class IngestionSettings(BaseSettings):
     max_document_size_mb: int = Field(default=10, ge=1, le=100)
 
 
+class MemorySettings(BaseSettings):
+    """Conversation memory settings."""
+
+    model_config = SettingsConfigDict(env_prefix="MEMORY_")
+
+    window_size: int = Field(
+        default=10,
+        ge=2,
+        le=50,
+        description="Max messages to load from PostgreSQL on cache miss",
+    )
+    max_cache_messages: int = Field(
+        default=20,
+        ge=5,
+        le=100,
+        description="Max messages to keep in Redis cache",
+    )
+    conversation_ttl_minutes: int = Field(
+        default=30,
+        ge=5,
+        le=1440,
+        description="Redis cache TTL (extends on activity)",
+    )
+
+
 class Settings(BaseSettings):
     """Main application settings."""
 
@@ -143,6 +168,7 @@ class Settings(BaseSettings):
     rate_limit: RateLimitSettings = Field(default_factory=RateLimitSettings)
     retrieval: RetrievalSettings = Field(default_factory=RetrievalSettings)
     ingestion: IngestionSettings = Field(default_factory=IngestionSettings)
+    memory: MemorySettings = Field(default_factory=MemorySettings)
 
     @field_validator("environment", mode="before")
     @classmethod

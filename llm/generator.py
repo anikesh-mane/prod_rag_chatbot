@@ -58,9 +58,10 @@ class RAGGenerator:
             for result in context
         ]
 
-        # Build prompt
-        if conversation_history and self._template.name == "rag_qa_with_history":
-            prompt = self._template.format(
+        # Build prompt - dynamically switch to history template when history provided
+        if conversation_history:
+            history_template = get_template("rag_qa_with_history")
+            prompt = history_template.format(
                 context=formatted_context,
                 question=query,
                 history=conversation_history,
@@ -71,11 +72,13 @@ class RAGGenerator:
                 question=query,
             )
 
+        template_used = "rag_qa_with_history" if conversation_history else self._template.name
         logger.debug(
             "Generated prompt",
-            template=self._template.name,
+            template=template_used,
             context_docs=len(context),
             prompt_length=len(prompt),
+            has_history=conversation_history is not None,
         )
 
         # Generate response

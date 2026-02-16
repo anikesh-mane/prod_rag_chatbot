@@ -43,6 +43,14 @@ class DocumentIngestRequest(BaseSchema):
     chunk_overlap: int = Field(default=50, ge=0, le=500, description="Overlap between chunks")
 
 
+class TokenRequest(BaseSchema):
+    """Request model for token issuance."""
+
+    user_id: str = Field(..., min_length=1, max_length=255, description="User identifier")
+    email: str = Field(..., description="User email address")
+    role: str = Field(default="user", description="User role: 'user' or 'admin'")
+
+
 class TokenRefreshRequest(BaseSchema):
     """Request model for token refresh."""
 

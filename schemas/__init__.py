@@ -28,6 +28,7 @@ from schemas.requests import (
     DocumentListQuery,
     FeedbackRequest,
     TokenRefreshRequest,
+    TokenRequest,
 )
 from schemas.responses import (
     ChatResponse,
@@ -74,6 +75,7 @@ __all__ = [
     "DocumentIngestRequest",
     "DocumentListQuery",
     "TokenRefreshRequest",
+    "TokenRequest",
     # Responses
     "ChatResponse",
     "FeedbackResponse",

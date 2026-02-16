@@ -42,6 +42,7 @@ class TokenResponse(BaseSchema):
     """Response model for authentication tokens."""
 
     access_token: str
+    refresh_token: str | None = Field(default=None, description="Refresh token")
     token_type: str = "bearer"
     expires_in: int = Field(..., description="Token expiry in seconds")
 

@@ -6,6 +6,7 @@ import structlog
 from fastapi import Depends, HTTPException, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 
+from auth.jwt_handler import ExpiredSignatureError, JWTError, decode_access_token
 from configs import Settings, get_settings
 from ingestion import IngestionPipeline
 from llm import RAGGenerator
@@ -166,8 +167,7 @@ async def get_current_user(
     token = credentials.credentials
 
     try:
-        # TODO: Implement actual JWT validation
-        # For now, return a mock user for development
+        # Development shortcut: accept "dev-token" for local testing
         if settings.is_development and token == "dev-token":
             return CurrentUser(
                 user_id="dev-user-123",
@@ -175,21 +175,32 @@ async def get_current_user(
                 role=UserRole.ADMIN,
             )
 
-        # In production, decode and validate JWT
-        # payload = jwt.decode(token, settings.auth.jwt_secret_key.get_secret_value(), algorithms=[settings.auth.jwt_algorithm])
-        # return CurrentUser(
-        #     user_id=payload["sub"],
-        #     email=payload["email"],
-        #     role=UserRole(payload["role"]),
-        # )
+        # Decode and validate JWT
+        payload = decode_access_token(token)
 
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Invalid authentication token",
-            headers={"WWW-Authenticate": "Bearer"},
+        # Ensure this is an access token, not a refresh token
+        if payload.get("type") != "access":
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Invalid token type",
+                headers={"WWW-Authenticate": "Bearer"},
+            )
+
+        return CurrentUser(
+            user_id=payload["sub"],
+            email=payload["email"],
+            role=UserRole(payload["role"]),
         )
 
-    except Exception as e:
+    except HTTPException:
+        raise
+    except ExpiredSignatureError:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Token has expired",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+    except (JWTError, KeyError, ValueError) as e:
         logger.warning("Authentication failed", error=str(e))
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,

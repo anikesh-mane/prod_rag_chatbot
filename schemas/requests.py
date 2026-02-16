@@ -43,12 +43,23 @@ class DocumentIngestRequest(BaseSchema):
     chunk_overlap: int = Field(default=50, ge=0, le=500, description="Overlap between chunks")
 
 
-class TokenRequest(BaseSchema):
-    """Request model for token issuance."""
+class RegisterRequest(BaseSchema):
+    """Request model for user registration."""
 
-    user_id: str = Field(..., min_length=1, max_length=255, description="User identifier")
+    username: str = Field(
+        ..., min_length=3, max_length=50, description="Unique username"
+    )
     email: str = Field(..., description="User email address")
-    role: str = Field(default="user", description="User role: 'user' or 'admin'")
+    password: str = Field(
+        ..., min_length=8, max_length=128, description="User password"
+    )
+
+
+class LoginRequest(BaseSchema):
+    """Request model for user login."""
+
+    username: str = Field(..., description="Username")
+    password: str = Field(..., description="User password")
 
 
 class TokenRefreshRequest(BaseSchema):

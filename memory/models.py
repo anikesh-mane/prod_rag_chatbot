@@ -1,4 +1,4 @@
-"""SQLAlchemy ORM models for conversational memory."""
+"""SQLAlchemy ORM models for conversational memory and user management."""
 
 import enum
 from datetime import datetime
@@ -6,6 +6,7 @@ from typing import TYPE_CHECKING
 from uuid import uuid4
 
 from sqlalchemy import (
+    Boolean,
     DateTime,
     ForeignKey,
     Index,
@@ -24,12 +25,72 @@ class Base(DeclarativeBase):
     pass
 
 
+class UserRole(str, enum.Enum):
+    """User role for RBAC."""
+
+    USER = "user"
+    ADMIN = "admin"
+
+
 class MessageRole(str, enum.Enum):
     """Message sender role."""
 
     USER = "user"
     ASSISTANT = "assistant"
     SYSTEM = "system"
+
+
+class User(Base):
+    """Represents a registered user."""
+
+    __tablename__ = "users"
+
+    # Primary key
+    id: Mapped[UUID] = mapped_column(
+        UUID(as_uuid=True),
+        primary_key=True,
+        default=uuid4,
+    )
+
+    # Credentials
+    username: Mapped[str] = mapped_column(
+        String(255),
+        unique=True,
+        nullable=False,
+        index=True,
+    )
+    email: Mapped[str] = mapped_column(
+        String(255),
+        unique=True,
+        nullable=False,
+        index=True,
+    )
+    password_hash: Mapped[str] = mapped_column(String(255), nullable=False)
+
+    # Authorization
+    role: Mapped[UserRole] = mapped_column(
+        SQLEnum(UserRole),
+        default=UserRole.USER,
+        nullable=False,
+    )
+    is_active: Mapped[bool] = mapped_column(Boolean, default=True)
+
+    # Timestamps
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime,
+        default=datetime.utcnow,
+        nullable=False,
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime,
+        default=datetime.utcnow,
+        onupdate=datetime.utcnow,
+        nullable=False,
+    )
+    last_login: Mapped[datetime | None] = mapped_column(
+        DateTime,
+        nullable=True,
+    )
 
 
 class Conversation(Base):

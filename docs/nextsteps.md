@@ -1,11 +1,5 @@
-## ✅ 1. Conversational Memory (State Management) -- implement summary !
-The current architecture describes a stateless pipeline: Query → Retrieval → Response. For a chatbot, you need to maintain context across multiple turns.
-
-- Missing Component: A Conversation Buffer or Summary Memory module.
-
-- Impact: Without this, the bot cannot answer follow-up questions (e.g., User: "Who is the CEO?" Bot: "John Doe." User: "How long has he been there?").
-
-- Recommendation: Add a memory/ directory to manage windowed chat history and a logic step to "condense" the chat history into a standalone search query before hitting the retrieval stage.
+## BETTER PROCESSING OF DOCUMENTS 
+-   Improve the quality of ingestion pipeline.   
 
 
 ## 2.1 Query Pre-processing & Transformation
@@ -19,21 +13,13 @@ Remove llm based "Language Detection." and add intent classification by simple m
 
 ## 2.2 Do we need to do vector search for every query?
 
-
-## ✅ 3. Document Management & CRUD
-The system focuses heavily on the "Query" path, but less on the "Maintenance" path.
-
-- Missing Component: Document Metadata Management API.
-
-- Impact: There is no way for an admin to delete a specific outdated document, update a single chunk, or see what documents are currently indexed without manual DB access.
-
-- Recommendation: Add endpoints in api/routes/admin.py for document status, deletion, and re-indexing.
+## 2.3 seperate milvus collection for every document ?
+- add document_id to every chunk before ingesting to milvus.
+- map conversation_id to document_id in milvus collection.
+- when a convo is restarted only search against the document_id of the document that was ingested in that conversation.
 
 
-## 4.1 Implement actual JWT validation
-- `api\dependencies.py line 151`
-
-## 4.2 Identified Gaps in Session Management
+## 4.3 Identified Gaps in Session Management
 While the "plumbing" for sessions is there, the following logic is missing from both the architecture and the roadmap:
 
 - Session vs. Conversation Mapping: The architecture mentions session:{user_id} in Redis, but a single user may have multiple distinct conversations (e.g., one about "Sales Targets" and another about "IT Support"). You need a session_id or conversation_id that is distinct from the user_id.
